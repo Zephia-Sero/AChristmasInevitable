@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>A Christmas Inevitable</title>
+        <style>
+            * {
+                -moz-user-select: none;
+                -webkit-user-select: none;
+                user-select: none;
+            }
+            noscript {
+                display:block;
+                position:absolute;
+                left:1em; top:1em;
+                width:15%; height:15%;
+                z-index: 10;
+            }
+            html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0 0;
+                font-family:'Courier New', Courier, monospace;
+            }
+            #container {
+                background-color: #404060;
+                width: 100%;
+                height: 100%;
+                color: #ddddff;
+            }
+            #sidebar {
+                position:absolute;
+                left:0%;
+                top:0%;
+                width:15%;
+                height:100%;
+                background-color: #282848;
+            }
+            #titlecontainer {
+                width: 100%;
+                height: 10%;
+                background-color: #383858;
+            }
+            #title {
+                text-align: center;
+                padding: 5% 0;
+            }
+            #gameinfo {
+                margin: 0 5%;
+            }
+            #timer {
+                text-align: center;
+                padding:5% 0;
+                height:10%;
+            }
+            .hidden {
+                display: none;
+            }
+            .plenty {
+                color:#5c5;
+            }
+            .urgent {
+                color:#cc5;
+            }
+            .critical {
+                color: #c55;
+            }
+            .fadein {
+                animation: fadein-kf 0.75s forwards;
+            }
+            @keyframes fadein-kf {
+                from {
+                    opacity: 0%;
+                }
+                to {
+                    opacity: 100%;
+                }
+            }
+            .fadeout {
+                animation: fadeout-kf 0.75s forwards;
+            }
+            @keyframes fadeout-kf {
+                from {
+                    opacity: 100%;
+                }
+                to {
+                    opacity: 0%;
+                }
+            }
+            #content {
+                position:absolute;
+                text-align:justify;
+                width:75%;
+                left:20%;
+                top:10%;
+                height:70%;
+                background-color: #404060;
+            }
+            #navbar {
+                position:absolute;
+                text-align:center;
+                width:85%;
+                left:15%;
+                top:0%;
+                height:10%;
+                border-collapse: collapse;
+            }
+            #navbar td {
+                cursor: pointer;
+                background-color: #282848;
+                width: 1%;
+            }
+            #navbar td:hover {
+                background-color: #202040;
+            }
+            #story {
+                position:absolute;
+                text-align: justify;
+                width:80%;
+                left:15%;
+                top:77.5%;
+                height:17.5%;
+                padding: 1.25% 2.5%;
+                background-color: #383858;
+            }
+            input[type="button"] {
+                width:10em;
+                height:2em;
+                background-color: #404060;
+                border: 1px solid #ddddff;
+                font-weight: bold;
+                border-radius: 2em;
+                color: #ddddff;
+                cursor: pointer;
+            }
+            input[type="button"]:hover {
+                background-color: #383858;
+            }
+            .center {
+                text-align: center;
+                margin: 0 auto;
+            }
+            #researchpage table {
+                width:100%;
+                height:100%;
+                border-collapse: collapse;
+            }
+            #researchpage table tr {
+                border: 2px solid #222;
+                cursor:pointer;
+            }
+            #researchpage table tr:hover {
+                background-color:#383858;
+            }
+            #researchpage table td {
+                text-align:center;
+                padding: 2%;
+            }
+            .autobutton {
+                float: right;
+            }
+        </style>
+        <script>
+            var content;
+            var researchcontent;
+            var story;
+            var joy_display;
+            var cookie_display;
+            var research_display;
+
+            var countdown;
+            var initial_time = 60*5;
+            var timeleft = initial_time;
+            const plentytime = initial_time * 0.67;
+            const urgenttime = initial_time * 0.33;
+
+            var joy = 0;
+            var oldjoy = joy;
+            var joy_per_trick = 5;
+            var cookies = 0;
+            var oldcookies = cookies;
+            var cookies_per_ask = 1;
+            var joy_per_cookie = 10;
+            var research = 0;
+            var oldresearch = research;
+            var research_per_action = 2;
+            var cookies_per_research = 1;
+            var presents = 0;
+            var oldpresents = presents;
+            var presents_per_action = 1;
+            var joy_per_present = 100;
+            var reindeer = 0;
+            var oldreindeer = reindeer;
+            var reindeer_per_action = 1;
+            var cookies_per_action = 100;
+
+            var unlockstage = 0;
+
+            var tickspersecond = 8;
+
+            var research_per_upgrade = [5,5,5,100,100,1000,100000];
+            var research_scalar = [1.3,1.3,1.7,100.0,2.1,100,100];
+
+            var elves = [0,0,0,0,0];
+            var elfcost = [5,5,5,15,15];
+            var elfcostmult = [1.2,1.4,1.3,1.1,1.1];
+            var elf_effectiveness = 1.0;
+
+            function gameend() {
+                if(reindeer < 100 || presents < 10000) return;
+                story.innerHTML = "You step onto the sleigh with an enormous bag of presents behind you and hundreds of reindeer capable of propelling you faster than light to travel into the past. As you give them the command, a white light absorbs you and in it is the text:<br/><br/>Thank you for playing! I hope you enjoyed this dumb little game!";
+                setTimeout(restart, 1000*12);
+            }
+            function gameend_bad() {
+                story.innerHTML = "You didn't finish in time, the world is doomed! Try again?";
+                setTimeout(restart, 1000*12);
+            }
+            function restart() {
+                window.location.reload();
+            }
+            function urgency(val, plenty, urgent) {
+                if(val < urgent) return "critical";
+                if(val > plenty) return "plenty";
+                return "urgent";
+            }
+            function unhide(id) {
+                let elem = document.getElementById(id);
+                elem.classList.remove("fadeout");
+                elem.classList.add("fadein");
+                elem.classList.remove("hidden");
+            }
+            function hide(id) {
+                let elem = document.getElementById(id);
+                elem.classList.remove("fadein");
+                elem.classList.add("fadeout");
+                setTimeout(() => {
+                    elem.classList.add("hidden");
+                }, 750);
+            }
+            function nextStage() {
+                unlockstage++;
+                if(unlockstage == 1) {
+                    unhide("timer");
+                    unhide("joy");
+                }
+                if(unlockstage == 2) {
+                    unhide("cookie");
+                }
+                if(unlockstage == 3) {
+                    unhide("research");
+                    unhide("Home");
+                    unhide("Research");
+                }
+                if(unlockstage == 4) {
+                    unhide("auto_joy");
+                    unhide("auto_cookie");
+                    unhide("auto_research");
+                    unhide("unhidingupgrade-0");
+                    unhide("hidingupgrade-1");
+                    for(let i = 0; i < 3; i++) {
+                        updateElfCost(i);
+                    }
+                    story.innerText = "You now have a bunch of elves working for you to help send you back in time!";
+                }
+                if(unlockstage == 5) {
+                    unhide("presents");
+                    unhide("auto_presents");
+                    unhide("hidingupgrade-2");
+                    updateElfCost(3);
+                    story.innerText = "You and the elves get to work creating a fuel containing enough pure joy to power the time machine you're building... I think?";
+                }
+                if(unlockstage == 6) {
+                    unhide("reindeer");
+                    unhide("auto_reindeer");
+                    unhide("hidingupgrade-3");
+                    updateElfCost(4);
+                    story.innerText = "You start teaching reindeer relativity, and possible methods of faster-than-light travel.";
+                }
+            }
+            var tickframe = 0;
+
+            function tick() {
+                if(timeleft <= 0) {
+                    gameend_bad();
+                    return;
+                }
+                if(tickframe % 8 == 0) {
+                    for(let i = 0; i < elves.length; i++) {
+                        for(let j = 0; j < elves[i] * elf_effectiveness; j++) {
+                            if(i == 0) {
+                                scienceTrick();
+                            } else if(i == 1) {
+                                askCookies();
+                            } else if(i == 2) {
+                                doResearch();
+                            } else if(i == 3) {
+                                makePresent();
+                            } else if(i == 4) {
+                                trainReindeer();
+                            }
+                        }
+                    }
+                }
+                if(unlockstage >= 6) {
+                    let dreindeer = (reindeer-oldreindeer)*tickspersecond;
+                    reindeer_display.innerHTML = String(reindeer) + " <label class='" + urgency(dreindeer,0,0) + "'>(" + String(dreindeer) + "/second)</label>";
+                    oldreindeer=reindeer;
+                }
+                
+                if(unlockstage >= 5) {
+                    let dpresents = (presents-oldpresents)*tickspersecond;
+                    presents_display.innerHTML = String(presents) + " <label class='" + urgency(dpresents,0,0) + "'>(" + String(dpresents) + "/second)</label>";
+                    oldpresents=presents;
+                }
+                if(unlockstage >= 3) {
+                    let dresearch = (research-oldresearch)*tickspersecond;
+                    research_display.innerHTML = String(research) + " <label class='" + urgency(dresearch,0,0) + "'>(" + String(dresearch) + "/second)</label>";
+                    oldresearch=research;
+                }
+                if(unlockstage >= 2) {
+                    let dcookie = (cookies-oldcookies)*tickspersecond;
+                    cookie_display.innerHTML = String(cookies) + " <label class='" + urgency(dcookie,0,0) + "'>(" + String(dcookie) + "/second)</label>";
+                    oldcookies=cookies;
+                }
+                if(unlockstage >= 1) {
+                    let djoy = (joy-oldjoy)*tickspersecond;
+                    joy_display.innerHTML = String(joy) + " <label class='" + urgency(djoy,0,0) + "'>(" + String(djoy) + "/second)</label>";
+                    oldjoy = joy;
+                }
+
+                let minutes = Math.floor(timeleft / 60);
+                minutes = String(minutes);
+                minutes = minutes.length == 1 ? "0"+minutes : minutes;
+                let seconds = timeleft % 60;
+                seconds = String(seconds);
+                seconds = seconds.length == 1 ? "0"+seconds : seconds;
+                countdown.innerText = minutes + ":" + seconds;
+                if(timeleft < plentytime) {
+                    countdown.classList.remove("plenty");
+                    countdown.classList.add("urgent");
+                }
+                if(timeleft < urgenttime) {
+                    countdown.classList.remove("urgent");
+                    countdown.classList.add("critical");
+                }
+                if(tickframe % tickspersecond == 0) {
+                    timeleft--;
+                }
+                tickframe = (tickframe+1) % tickspersecond;
+                setTimeout(tick, 1000/tickspersecond);
+            }
+            function gameStart() {
+                if(unlockstage > 0) return;
+                content = document.getElementById("mainpage");
+                researchcontent = document.getElementById("researchpage");
+                story = document.getElementById("story");
+                joy_display = document.getElementById("joydisplay");
+                cookie_display = document.getElementById("cookiedisplay");
+                research_display = document.getElementById("researchdisplay");
+                presents_display = document.getElementById("presentsdisplay");
+                reindeer_display = document.getElementById("reindeerdisplay");
+                let children = [...content.children];
+                for(let i in children) {
+                    content.removeChild(children[i]);
+                }
+                story.innerText = "First, you must gain some funding quickly through some admittedly desperate means... By performing science 'magic' tricks on the street. Luckily the Mayans chose a time close to Christmas, so people might still be outside decorating their homes, though something tells you that you won't be getting much money for your displays.";
+                let buttontext = document.createElement("p");
+                buttontext.innerHTML = "\
+                <input type='button' value='Do science tricks!'\
+                onclick='scienceTrick()'>  \
+                +<label id='joy_per_click'>5</label> Joy/click \
+                <label id='auto_joy' class='hidden autobutton'><input type='button' value='Hire elf' onclick='automate(0)'><label id='cost_per_elf-0'></label></label>";
+                content.appendChild(buttontext);
+                nextStage();
+                countdown = document.getElementById("time");
+                tick();
+            }
+            function scienceTrick() {
+                if(unlockstage < 1) return;
+                joy += joy_per_trick;
+                if(unlockstage == 1 && joy >= 100) {
+                    nextStage();
+                    story.innerText = "Next you should ask for some cookies from people you impressed, to help with research, of course...";
+                    content.innerHTML += "<p>\
+                    <input type='button' value='Ask for cookies' onclick='askCookies()'> \
+                    +<label id='cookies_per_click'>1</label> Cookies, \
+                    -<label id='joy_per_cookie'>10</label> Joy / click \
+                    <label id='auto_cookie' class='hidden autobutton'><input type='button' value='Hire elf' onclick='automate(1)'><label id='cost_per_elf-1'></label></label>\
+                    </p>"
+                }
+            }
+            function askCookies() {
+                if(unlockstage < 2) return;
+                if(joy >= joy_per_cookie) {
+                    cookies += cookies_per_ask;
+                    joy -= joy_per_cookie;
+                }
+                if(unlockstage == 2 && cookies >= 10) {
+                    nextStage();
+                    story.innerText = "Now that you have plenty of snacks, it's time to start researching!";
+                    content.innerHTML += "<p>\
+                    <input type='button' value='Do some research!' onclick='doResearch()'> \
+                    +<label id='research_per_click'>2</label> Research, \
+                    -<label id='cookies_per_research'>1</label> Cookies / click \
+                    <label id='auto_research' class='hidden autobutton'><input type='button' value='Hire elf' onclick='automate(2)'><label id='cost_per_elf-2'></label></label>\
+                    </p>";
+                }
+            }
+            function doResearch() {
+                if(unlockstage < 3) return;
+                if(cookies >= cookies_per_research) {
+                    cookies -= cookies_per_research;
+                    research += research_per_action;
+                }
+            }
+            function setScene(num) {
+                if(num == 0) {
+                    document.getElementById("Home").style = "background-color:#202040;";
+                    document.getElementById("Research").style = "";
+                    researchcontent.classList.add("hidden");
+                    content.classList.remove("hidden");
+                } else if(num == 1 && unlockstage >= 3) {
+                    document.getElementById("Home").style = "";
+                    document.getElementById("Research").style = "background-color:#202040;";
+                    content.classList.add("hidden");
+                    researchcontent.classList.remove("hidden");
+                }
+            }
+            function upgrade(id) {
+                if(id < 0 || id >= research_per_upgrade.length) return;
+                if(research >= research_per_upgrade[id]) {
+                    research -= research_per_upgrade[id];
+                    research_per_upgrade[id] = Math.floor(research_per_upgrade[id] * research_scalar[id]);
+                    if(id == 0) {
+                        joy_per_trick = Math.floor(joy_per_trick * 1.2);
+                        document.getElementById("joy_per_click").innerText = joy_per_trick;
+                    } else if(id == 1) {
+                        joy_per_cookie = Math.floor(joy_per_cookie * 0.9);
+                        document.getElementById("joy_per_cookie").innerText = joy_per_cookie;
+                    } else if(id == 2) {
+                        if(cookies_per_ask < 3) cookies_per_ask++;
+                        else cookies_per_ask = Math.floor(cookies_per_ask * 1.4);
+                        document.getElementById("cookies_per_click").innerText = cookies_per_ask;
+                    } else if(id == 3) {
+                        document.getElementById("hidingupgrade-0").classList.add("hidden");
+                        nextStage();
+                    } else if(id == 4) {
+                        elf_effectiveness *= 2;
+                    } else if(id == 5) {
+                        document.getElementById("hidingupgrade-1").classList.add("hidden");
+                        content.innerHTML += "<p>\
+                        <input type='button' value='Make a present!' onclick='makePresent()'> \
+                        +1 Present, \
+                        -100 Joy / click \
+                        <label id='auto_presents' class='hidden autobutton'><input type='button' value='Hire elf' onclick='automate(3)'><label id='cost_per_elf-3'></label></label>\
+                        </p>";
+                        nextStage();
+                    } else if(id == 6) {
+                        document.getElementById("hidingupgrade-2").classList.add("hidden");
+                        content.innerHTML += "<p>\
+                        <input type='button' value='Train a reindeer!' onclick='trainReindeer()'> \
+                        +1 Reindeer, \
+                        -100 Cookies / click \
+                        <label id='auto_reindeer' class='hidden autobutton'><input type='button' value='Hire elf' onclick='automate(4)'><label id='cost_per_elf-4'></label></label>\
+                        </p>";
+                        nextStage();
+                    }
+                    document.getElementById("upgradecost-" + String(id)).innerText = "-" + String(research_per_upgrade[id]) + " Research";
+                }
+            }
+            function updateElfCost(id) {
+                document.getElementById("cost_per_elf-" + String(id)).innerText = "-" + String(elfcost[id]) + " Cookies";
+            }
+            function automate(id) {
+                if(id < 0 || id >= elves.length) return;
+                if(cookies >= elfcost[id]) {
+                    cookies -= elfcost[id];
+                    elfcost[id] = Math.floor(elfcost[id] * elfcostmult[id]);
+                    elves[id]++;
+                    updateElfCost(id);
+                }
+            }
+            function makePresent() {
+                if(joy >= 100) {
+                    joy -= 100;
+                    presents++;
+                }
+            }
+            function trainReindeer() {
+                if(cookies >= 100) {
+                    cookies -= 100;
+                    reindeer++;
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <noscript>Game requires JavaScript!</noscript>
+        <div id="container">
+            <div id="sidebar">
+                <div id="titlecontainer">
+                    <div id="title">
+                        A Christmas Inevitable<br />
+                        By Zephi Sero
+                    </div>
+                </div>
+                <div id="gameinfo">
+                    <div id="timer" class="hidden">
+                        Time Left:<br/>
+                        <div id="time" class="time plenty">15:00</div>
+                    </div>
+                    <div id="joy" class="hidden">Joy: <label id="joydisplay">0 <label class="urgent">(0/second)</label></label></div>
+                    <div id="cookie" class="hidden">Cookies: <label id="cookiedisplay">0 <label class="urgent">(0/second)</label></label></div>
+                    <div id="research" class="hidden">Research: <label id="researchdisplay">0 <label class="urgent">(0/second)</label></label></div>
+                    <div id="presents" class="hidden">Presents: <label id="presentsdisplay">0 <label class="urgent">(0/second)</label></label></div>
+                    <div id="reindeer" class="hidden">Reindeer: <label id="reindeerdisplay">0 <label class="urgent">(0/second)</label></label></div>
+                </div>
+            </div>
+            <table id="navbar">
+                <tr>
+                    <td id="Home" class="" onclick="setScene(0)">Home</td>
+                    <td id="Research" class="hidden" onclick="setScene(1)">Research</td>
+                </tr>
+            </table>
+            <div id="content">
+                <div id="researchpage" class="hidden">
+                    <table>
+                        <tr onclick="upgrade(0)">
+                            <td>Cooler Science Tricks</td>
+                            <td>Increase Joy/click</td>
+                            <td id="upgradecost-0">-5 Research</td>
+                        </tr>
+                        <tr onclick="upgrade(1)">
+                            <td>Better Persuasion</td>
+                            <td>Decrease Joy/cookie</td>
+                            <td id="upgradecost-1">-5 Research</td>
+                        </tr>
+                        <tr onclick="upgrade(2)">
+                            <td>2xBaker's Dozen Combo</td>
+                            <td>Increase Cookies/click</td>
+                            <td id="upgradecost-2">-5 Research</td>
+                        </tr>
+                        <tr id="hidingupgrade-0" onclick="upgrade(3)">
+                            <td>Automation</td>
+                            <td>Hire some people to help!</td>
+                            <td id="upgradecost-3">-100 Research</td>
+                        </tr>
+                        <tr id="unhidingupgrade-0" onclick="upgrade(4)" class="hidden">
+                            <td>Effectively Efficient Elves</td>
+                            <td>Elves work at 2x efficiency.</td>
+                            <td id="upgradecost-4">-100 Research</td>
+                        </tr>
+                        <tr id="hidingupgrade-1" class="hidden" onclick="upgrade(5)">
+                            <td>Presentation</td>
+                            <td>More effective marketing?</td>
+                            <td id="upgradecost-5">-1000 Research</td>
+                        </tr>
+                        <tr id="hidingupgrade-2" class="hidden" onclick="upgrade(6)">
+                            <td>Cavalry???</td>
+                            <td>???</td>
+                            <td id="upgradecost-6">-100000 Research</td>
+                        </tr>
+                        <tr id="hidingupgrade-3" class="hidden" onclick="gameend()">
+                            <td>A Christmas Inevitable</td>
+                            <td>Thanks for playing!</td>
+                            <td>-10000 Presents, -100 Reindeer</td>
+                        </tr>
+                    </table>
+                </div>
+                <div id="mainpage" class=""></div>
+            </div>
+            <div id="story">
+                <p>You wake up next to your house at 7:00 PM on December 20th, 2012, after you decided to crash outside. But you realize, the Mayan calendar ends in 5 hours! You suddenly have a plan to prevent the world from ending: you'll go back in time and prevent it from happening!</p>
+                <input class="center" style="display:block;" type="button" value="Begin!" onclick="gameStart()">
+            </div>
+        </div>
+    </body>
+</html>
